@@ -3,9 +3,10 @@ import requests
 import ssl
 import traceback
 import logging
+from flask_cors import CORS
 
 app = Flask(__name__)
-
+CORS(app)
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
