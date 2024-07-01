@@ -1,34 +1,60 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import ssl
+import traceback
+import logging
+from config import DEBUG, SSL_CERT_FILE, SSL_KEY_FILE, LOG_LEVEL, VECTOR_DB_PATH
+from models import rag_model
+from utils import summarize_text, assess_risk
+import faiss
 
 app = Flask(__name__)
 CORS(app)
 
-# 모델 및 토크나이저 로드
-tokenizer = AutoTokenizer.from_pretrained("google/pegasus-multi_news")
-model = AutoModelForSeq2SeqLM.from_pretrained("google/pegasus-multi_news")
+logging.basicConfig(level=getattr(logging, LOG_LEVEL))
+logger = logging.getLogger(__name__)
 
-@app.route('/analyze', methods=['POST'])
+
+def load_vector_database():
+    try:
+        rag_model.index = faiss.read_index(VECTOR_DB_PATH)
+        logger.info(f"Vector database loaded from {VECTOR_DB_PATH}")
+    except Exception as e:
+        logger.error(f"Failed to load vector database: {str(e)}")
+        raise
+
+
+@app.route("/analyze", methods=["POST"])
 def analyze():
-    data = request.json
-    text = data.get('text')
+    try:
+        data = request.json
+        text = data.get("text")
+        logger.info(f"Received text: {text}")
 
-    # 입력 텍스트를 토큰화하고 모델에 입력
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding="longest")
-    summary_ids = model.generate(inputs["input_ids"], max_length=60, num_beams=4, length_penalty=2.0, early_stopping=True)
-    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        relevant_chunks = rag_model.search(text)
+        relevant_text = " ".join(relevant_chunks)
 
-    # 텍스트에서 위험을 판단하는 간단한 로직 (예시)
-    risk = 'High' if 'share' in text.lower() or 'third party' in text.lower() else 'Low'
+        summary = summarize_text(relevant_text)
+        logger.info(f"Generated summary: {summary}")
 
-    response_data = {
-        'text': text,
-        'summary': summary,
-        'risk': risk
-    }
+        risk = assess_risk(summary)
+        logger.info(f"Risk assessment: {risk}")
 
-    return jsonify(response_data)
+        response_data = {"text": text, "summary": summary, "risk": risk}
+        return jsonify(response_data)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "An unexpected error occurred"}), 500
+
+
+if __name__ == "__main__":
+    try:
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(certfile=SSL_CERT_FILE, keyfile=SSL_KEY_FILE)
+
+        app.run(debug=DEBUG, ssl_context=ssl_context)
+    except Exception as e:
+        logger.error(f"Failed to start server: {str(e)}")
+        logger.error(traceback.format_exc())
