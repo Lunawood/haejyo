@@ -2,7 +2,7 @@
 
 function analyzeText(text) {
     // 위험 옵션 분석 로직 (모델 API 호출)
-    return fetch('https://your-api-endpoint.com/analyze', {
+    return fetch('https://127.0.0.1:5000/analyze', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -25,11 +25,13 @@ function analyzeText(text) {
   }
   
   document.querySelectorAll('p, li, div').forEach(node => {
-    const text = node.innerText;
-    analyzeText(text).then(result => {
-      if (result.risk === 'High') {
-        addOverlay(node, result.risk);
-      }
-    });
+    const text = node.innerText.trim();
+    if (text.length > 0) {
+      analyzeText(text).then(result => {
+        addOverlay(node, result.risk, result.summary);
+      }).catch(error => {
+        console.error('Error analyzing text:', error);
+      });
+    }
   });
   
