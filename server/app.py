@@ -6,7 +6,7 @@ import logging
 from config import DEBUG, SSL_CERT_FILE, SSL_KEY_FILE, LOG_LEVEL, VECTOR_DB_PATH
 from models import rag_model
 from utils import summarize_text, assess_risk
-import faiss
+import faiss, json
 
 app = Flask(__name__)
 CORS(app)
@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 def load_vector_database():
     try:
         rag_model.index = faiss.read_index(VECTOR_DB_PATH)
+
+        # text_chunks도 함께 로드
+        with open(VECTOR_DB_PATH + "_chunks.json", "r") as f:
+            rag_model.text_chunks = json.load(f)
+
         logger.info(f"Vector database loaded from {VECTOR_DB_PATH}")
     except Exception as e:
         logger.error(f"Failed to load vector database: {str(e)}")
@@ -30,6 +35,8 @@ def analyze():
         data = request.json
         text = data.get("text")
         logger.info(f"Received text: {text}")
+        if rag_model.index is None:
+            raise ValueError("Vector database not initialized")
 
         relevant_chunks = rag_model.search(text)
         relevant_text = " ".join(relevant_chunks)
@@ -51,6 +58,7 @@ def analyze():
 
 if __name__ == "__main__":
     try:
+        load_vector_database()  # 서버 시작 시 벡터 데이터베이스 로드
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(certfile=SSL_CERT_FILE, keyfile=SSL_KEY_FILE)
 

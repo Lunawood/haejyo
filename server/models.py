@@ -18,11 +18,17 @@ class RAGModel:
         self.index.add(embeddings)
 
     def search(self, query, top_k=3):
+        if not self.index or not self.text_chunks:
+            raise ValueError("Index or text chunks not initialized")
+
         query_embedding = self.embedding_model.encode([query])[0]
         distances, indices = self.index.search(
             np.array([query_embedding]).astype("float32"), top_k
         )
-        return [self.text_chunks[i] for i in indices[0]]
+
+        # 유효한 인덱스만 반환
+        valid_indices = [i for i in indices[0] if 0 <= i < len(self.text_chunks)]
+        return [self.text_chunks[i] for i in valid_indices]
 
 
 rag_model = RAGModel()
