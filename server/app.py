@@ -1,23 +1,32 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import os
+import requests
+from dotenv import load_dotenv
 
 app = Flask(__name__)
 CORS(app)
 
-# 모델 및 토크나이저 로드
-tokenizer = AutoTokenizer.from_pretrained("google/pegasus-multi_news")
-model = AutoModelForSeq2SeqLM.from_pretrained("google/pegasus-multi_news")
+# 환경 변수 로드
+load_dotenv()
+
+# 모델 api 로드
+API_URL = "https://api-inference.huggingface.co/models/google/pegasus-xsum"
+API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+headers = {"Authorization": f"Bearer {API_KEY}"}
+
+def query(payload):
+    response = requests.post(API_URL, headers=headers, json=payload)
+    return response.json()
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
     data = request.json
     text = data.get('text')
 
-    # 입력 텍스트를 토큰화하고 모델에 입력
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding="longest")
-    summary_ids = model.generate(inputs["input_ids"], max_length=60, num_beams=4, length_penalty=2.0, early_stopping=True)
-    summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+    # 입력 텍스트 요약
+    response = query({"inputs": text})
+    summary = response[0]['summary_text']
 
     # 텍스트에서 위험을 판단하는 간단한 로직 (예시)
     risk = 'High' if 'share' in text.lower() or 'third party' in text.lower() else 'Low'
@@ -31,4 +40,4 @@ def analyze():
     return jsonify(response_data)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(ssl_context=('server.crt', 'server.key'), debug=True)
