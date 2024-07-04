@@ -5,104 +5,91 @@ import traceback
 import logging
 from config import DEBUG, SSL_CERT_FILE, SSL_KEY_FILE, LOG_LEVEL, VECTOR_DB_PATH
 from models import rag_model
-from utils import summarize_text, assess_risk
-import os
-import faiss, json
-import requests
-from bs4 import BeautifulSoup
-import os
-import requests
-from dotenv import load_dotenv
+from utils import summarize_text, assess_risk, analyze_for_customer
+import faiss, json, os
+from initialize_db import load_terms_and_conditions
+
 
 app = Flask(__name__)
 CORS(app)
 
-SSL_CERT_FILE = os.getenv("SSL_CERT_FILE")
-SSL_KEY_FILE = os.getenv("SSL_KEY_FILE")
-LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG")
-logging.basicConfig(level=getattr(logging, LOG_LEVEL), format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=getattr(logging, LOG_LEVEL))
 logger = logging.getLogger(__name__)
 
-def load_vector_database():
-    try:
-        rag_model.index = faiss.read_index(VECTOR_DB_PATH)
-        with open(VECTOR_DB_PATH + "_chunks.json", "r") as f:
-            rag_model.text_chunks = json.load(f)
-        logger.info(f"Vector database loaded from {VECTOR_DB_PATH}")
-    except Exception as e:
-        logger.error(f"Failed to load vector database: {str(e)}")
-        raise
 
-@app.route("/", methods=["GET"])
-def home():
-    return "AgreeSum"
+def update_database(new_texts, new_risks):
+    # 새 텍스트 추가
+    if len(new_risks) != 0:
+        rag_model.add_texts(new_texts, new_risks)
+
+    # 업데이트된 인덱스 저장
+    faiss.write_index(rag_model.index, VECTOR_DB_PATH)
+
+    # 업데이트된 text_chunks 저장
+    with open(VECTOR_DB_PATH + "_chunks.json", "w") as f:
+        json.dump(rag_model.text_chunks, f)
+
+    print(f"Vector database updated and saved to {VECTOR_DB_PATH}\n\n")
+
+
+MAX_INPUT_LENGTH = 512  # 모델이 지원하는 최대 길이로 설정
+
 
 @app.route("/analyze", methods=["POST"])
-# 환경 변수 로드
-load_dotenv()
-
-# 모델 api 로드
-API_URL = "https://api-inference.huggingface.co/models/google/pegasus-xsum"
-API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-headers = {"Authorization": f"Bearer {API_KEY}"}
-
-def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
-
-@app.route('/analyze', methods=['POST'])
 def analyze():
     try:
+
         data = request.json
-        text = data.get("text")
-        logger.info(f"Received text: {text}")
-        print(f"Received text: {text}")  # 테스트를 위해 텍스트 출력
+        query = data.get("text")
+        logger.info(f"Received text: {query}")
         if rag_model.index is None:
             raise ValueError("Vector database not initialized")
 
-        relevant_chunks = rag_model.search(text)
-        relevant_text = " ".join(relevant_chunks)
+        relevant_chunks = rag_model.search(query)
+        print("relevant chunks: ", relevant_chunks)
+        relevant_summaries = []
+        for chunk in relevant_chunks:
+            customer_analysis = analyze_for_customer(query, chunk["text"])
 
-        summary = summarize_text(relevant_text)
-        logger.info(f"Generated summary: {summary}")
+            if customer_analysis != "UNRELATED":
+                relevant_summaries.append(
+                    {
+                        "query": query,
+                        "summary": summarize_text(chunk["text"]),
+                        "risk": chunk["risk"],
+                        "customer_analysis": customer_analysis,
+                    }
+                )
 
-        risk = assess_risk(summary)
-        logger.info(f"Risk assessment: {risk}")
+        logger.info(f"Generated summaries and risks: {relevant_summaries}")
 
-        response_data = {"text": text, "summary": summary, "risk": risk}
-        return jsonify(response_data)
-    data = request.json
-    text = data.get('text')
-
-    # 입력 텍스트 요약
-    response = query({"inputs": text})
-    summary = response[0]['summary_text']
-
-    # 텍스트에서 위험을 판단하는 간단한 로직 (예시)
-    risk = 'High' if 'share' in text.lower() or 'third party' in text.lower() else 'Low'
-
-    response_data = {
-        'text': text,
-        'summary': summary,
-        'risk': risk
-    }
-
-    return jsonify(response_data)
+        return jsonify(relevant_summaries)
 
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({"error": "An unexpected error occurred"}), 500
 
+
 if __name__ == "__main__":
     try:
-        load_vector_database()  # 서버 시작 시 벡터 데이터베이스 로드
+        # 초기 데이터베이스 생성 (이미 있다면 로드)
+        if os.path.exists(VECTOR_DB_PATH):
+            rag_model.index = faiss.read_index(VECTOR_DB_PATH)
+            with open(VECTOR_DB_PATH + "_chunks.json", "r") as f:
+                rag_model.text_chunks = json.load(f)
+        else:
+            initial_texts = load_terms_and_conditions()
+            initial_risks = [
+                assess_risk(text) for text in initial_texts
+            ]  # Assess initial risks
+
+            rag_model.create_index(initial_texts, initial_risks)
+            update_database([], [])  # 초기 저장
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ssl_context.load_cert_chain(certfile="server.crt", keyfile="server.key")
+        ssl_context.load_cert_chain(certfile=SSL_CERT_FILE, keyfile=SSL_KEY_FILE)
 
         app.run(debug=DEBUG, ssl_context=ssl_context)
     except Exception as e:
         logger.error(f"Failed to start server: {str(e)}")
         logger.error(traceback.format_exc())
-if __name__ == '__main__':
-    app.run(ssl_context=('server.crt', 'server.key'), debug=True)

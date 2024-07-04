@@ -6,6 +6,6 @@ __pycache__/
 *.pyd
 *.pdm
 
-server.key
-server.crt
-server.csr
+server/*.key
+server/*.crt
+server/*.csr
