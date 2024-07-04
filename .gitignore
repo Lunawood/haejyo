@@ -4,8 +4,4 @@
 __pycache__/
 *.pyo
 *.pyd
-*.pyd
 *.pdm
-server.crt
-server.csr
-server.key
