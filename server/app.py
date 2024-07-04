@@ -30,6 +30,10 @@ def load_vector_database():
         logger.error(f"Failed to load vector database: {str(e)}")
         raise
 
+@app.route("/", methods=["GET"])
+def home():
+    return "AgreeSum"
+
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
