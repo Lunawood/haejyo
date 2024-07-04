@@ -5,3 +5,7 @@ __pycache__/
 *.pyo
 *.pyd
 *.pdm
+
+server.key
+server.crt
+server.csr
