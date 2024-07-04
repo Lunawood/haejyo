@@ -6,6 +6,6 @@ __pycache__/
 *.pyd
 *.pdm
 
-# Ignore all .crt and .key files in the server directory
-server/*.crt
 server/*.key
+server/*.crt
+server/*.csr
