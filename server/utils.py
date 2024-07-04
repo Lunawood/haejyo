@@ -1,7 +1,6 @@
 import requests
 from config import HF_API_KEY, HF_SUMMARY_MODEL_URL
 
-
 def summarize_text(text):
     headers = {"Authorization": f"Bearer {HF_API_KEY}"}
     payload = {

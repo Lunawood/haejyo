@@ -1,7 +1,6 @@
-// 웹 페이지에 주입되어 개인정보 동의 옵션을 분석하고 오버레이를 추가하는 스크립트
+// 웹 페이지에 주입되어 사용자가 드래그한 텍스트를 분석하는 스크립트
 
 function analyzeText(text) {
-  // 위험 옵션 분석 로직 (모델 API 호출)
   return fetch("https://127.0.0.1:5000/analyze", {
     method: "POST",
     headers: {
@@ -11,30 +10,52 @@ function analyzeText(text) {
   }).then((response) => response.json());
 }
 
-function addOverlay(node, risk, summary) {
+function addOverlay(risk, summary) {
+  const existingOverlay = document.querySelector('.overlay');
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
+
   const overlay = document.createElement("div");
   overlay.className = "overlay";
-  overlay.textContent = summary;
-  overlay.style.position = "absolute";
-  overlay.style.backgroundColor = "red";
+  overlay.textContent = risk === "High" ? summary : "문제 없음";
+  overlay.style.position = "fixed";
+  overlay.style.backgroundColor = risk === "High" ? "red" : "green";
   overlay.style.color = "white";
   overlay.style.padding = "5px";
-  overlay.style.zIndex = "1000";
-  node.style.position = "relative";
-  node.appendChild(overlay);
+  overlay.style.zIndex = "10000";
+  overlay.style.bottom = "10px";
+  overlay.style.right = "10px";
+  overlay.style.maxWidth = "300px";
+  overlay.style.borderRadius = "5px";
+  document.body.appendChild(overlay);
 }
 
-document.querySelectorAll("p, li, div").forEach((node) => {
-  const text = node.innerText.trim();
-  if (text.length > 0) {
-    analyzeText(text)
-      .then((result) => {
-        if (result.risk == "High") {
-          addOverlay(node, result.risk, result.summary);
-        }
-      })
-      .catch((error) => {
-        console.error("Error analyzing text:", error);
-      });
+let isMouseDown = false;
+let selectedText = '';
+
+document.addEventListener('mousedown', () => {
+  isMouseDown = true;
+  selectedText = '';
+});
+
+document.addEventListener('mouseup', () => {
+  if (isMouseDown) {
+    selectedText = window.getSelection().toString().trim();
+    console.log(`Mouse up: ${selectedText}`);
+    if (selectedText.length > 0) {
+      console.log(`Selected text to analyze: ${selectedText}`);
+      analyzeText(selectedText)
+        .then((result) => {
+          console.log(`Server response: ${JSON.stringify(result)}`);
+          addOverlay(result.risk, result.summary);
+        })
+        .catch((error) => {
+          console.error("Error analyzing text:", error);
+        });
+    } else {
+      console.log("No text selected.");
+    }
+    isMouseDown = false;
   }
 });

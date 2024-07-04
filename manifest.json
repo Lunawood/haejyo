@@ -1,29 +1,22 @@
 {
-    "manifest_version": 3,
-    "name": "AgreeSum",
-    "version": "1.0",
-    "description": "Analyze and highlight risky privacy policy options.",
-    "permissions": ["activeTab", "storage", "scripting"],
-    "background": {
-      "service_worker": "background.js"
-    },
-    "action": {
-      "default_popup": "popup.html",
-      "default_icon": {
-        "16": "logo_16x16.png",
-        "128": "logo_128x128.png"
-      }
-    },
-    "content_scripts": [
-      {
-        "matches": ["<all_urls>"],
-        "js": ["content.js"],
-        "css": ["style.css"]
-      }
-    ],
-    "icons": {
-      "16": "logo_16x16.png",
-      "128": "logo_128x128.png"
+  "manifest_version": 3,
+  "name": "AgreeSum",
+  "version": "1.0",
+  "description": "Analyze and highlight risky privacy policy options.",
+  "permissions": ["activeTab", "storage", "scripting"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["style.css"],
+      "run_at": "document_end"
     }
+  ],
+  "icons": {
+    "16": "logo_16x16.png",
+    "128": "logo_128x128.png"
   }
-  
+}
