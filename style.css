@@ -1,6 +1,78 @@
+/* style.css */
+
+/* 로딩 버튼 스타일 */
+.loading-button {
+  position: fixed;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  z-index: 10000;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.spinner {
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  border-left-color: #000;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 오버레이 스타일 */
 .overlay {
-  font-family: Arial, sans-serif;
+  position: fixed;
+  background-color: white;
+  color: black;
+  padding: 10px;
+  z-index: 10000;
+  max-width: 300px;
+  border-radius: 8px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-size: 14px;
-  line-height: 1.5;
-  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+  border: 2px solid;
+}
+
+.overlay.high-risk {
+  border-color: red;
+  box-shadow: 0px 0px 10px red;
+}
+
+.overlay.medium-risk {
+  border-color: yellow;
+  box-shadow: 0px 0px 10px yellow;
+}
+
+.overlay.low-risk {
+  border-color: green;
+  box-shadow: 0px 0px 10px green;
+}
+
+.expand-button {
+  margin-top: 10px;
+  cursor: pointer;
+  color: blue;
+  background: none;
+  border: none;
+  text-decoration: underline;
+}
+
+.customer-analysis {
+  display: none;
+  margin-top: 10px;
 }
