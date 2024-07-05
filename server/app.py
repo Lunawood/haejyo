@@ -34,11 +34,13 @@ def update_database(new_texts, new_risks):
 
 MAX_INPUT_LENGTH = 512  # 모델이 지원하는 최대 길이로 설정
 
+@app.route("/", methods=["GET"])
+def home():
+    return "AgreeSum Server"
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
-
         data = request.json
         query = data.get("text")
         logger.info(f"Received text: {query}")
