@@ -1,8 +1,7 @@
 // 웹 페이지에 주입되어 사용자가 드래그한 텍스트를 분석하는 스크립트
 
 function analyzeText(text) {
-  // 위험 옵션 분석 로직 (모델 API 호출)
-  return fetch("https://127.0.0.1:5000/search", {
+  return fetch("https://127.0.0.1:5000/analyze", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -10,51 +9,101 @@ function analyzeText(text) {
     body: JSON.stringify({ text }),
   })
     .then((response) => response.json())
-    .then((result) => {
-      if (result.risk === "High") {
-        console.log("위험");
-      } else {
-        console.log("안전");
-      }
-      return result; // 여기서 result 반환
-    })
     .catch((error) => {
       console.error("Error analyzing text:", error);
+      return []; // 에러가 발생하면 빈 리스트 반환
     });
 }
 
-function addOverlay(risk, summary, x, y) {
+function createLoadingButton(x, y) {
+  const existingButton = document.querySelector(".loading-button");
+  if (existingButton) {
+    existingButton.remove();
+  }
+
+  const button = document.createElement("div");
+  button.className = "loading-button";
+  button.style.left = `${x}px`;
+  button.style.top = `${y}px`;
+  button.innerHTML = '<div class="spinner"></div>';
+  document.body.appendChild(button);
+}
+
+function updateLoadingButton(button, count, highestRisk) {
+  if (button) {
+    button.textContent = `${count}`;
+    button.style.borderColor = highestRisk === "High" ? "red" : highestRisk === "Medium" ? "yellow" : "green";
+    button.style.color = highestRisk === "High" ? "red" : highestRisk === "Medium" ? "yellow" : "green";
+  }
+}
+
+function addOverlay(risk, summary, customerAnalysis, x, y) {
   const existingOverlay = document.querySelector(".overlay");
   if (existingOverlay) {
     existingOverlay.remove();
   }
 
   const overlay = document.createElement("div");
-  overlay.className = "overlay";
-  overlay.textContent = risk === "High" ? summary : "문제 없음";
-  overlay.style.position = "fixed";
-  overlay.style.backgroundColor = risk === "High" ? "rgba(255, 0, 0, 0.5)" : "rgba(0, 128, 0, 0.5)";
-  overlay.style.color = "white";
-  overlay.style.padding = "10px";
-  overlay.style.zIndex = "10000";
+  overlay.className = `overlay ${risk.toLowerCase()}-risk`;
+  overlay.innerHTML = `
+      <div>${risk === "Low" ? "문제 없음" : summary}</div>
+      ${risk !== "Low" ? '<button class="expand-button">펼치기</button>' : ""}
+      ${risk !== "Low" ? `<div class="customer-analysis">${customerAnalysis}</div>` : ""}
+    `;
   overlay.style.left = `${x}px`;
   overlay.style.top = `${y}px`;
-  overlay.style.maxWidth = "300px";
-  overlay.style.borderRadius = "8px";
-  overlay.style.fontFamily = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-  overlay.style.fontSize = "14px";
-  overlay.style.boxShadow = "0px 0px 10px rgba(0, 0, 0, 0.5)";
   document.body.appendChild(overlay);
+
+  if (risk !== "Low") {
+    const expandButton = overlay.querySelector(".expand-button");
+    const analysisDiv = overlay.querySelector(".customer-analysis");
+    expandButton.addEventListener("click", () => {
+      const isVisible = analysisDiv.style.display === "block";
+      analysisDiv.style.display = isVisible ? "none" : "block";
+      expandButton.textContent = isVisible ? "펼치기" : "접기";
+    });
+  }
 }
 
 document.addEventListener("mouseup", function (event) {
   const selectedText = window.getSelection().toString().trim();
   if (selectedText.length > 0) {
+    const { clientX: x, clientY: y } = event;
+    createLoadingButton(x, y);
+
     analyzeText(selectedText)
-      .then((result) => {
-        if (result) {
-          const { clientX: x, clientY: y } = event;
-          addOverlay(result.risk, result.summary, x, y);
+      .then((results) => {
+        const loadingButton = document.querySelector(".loading-button");
+        if (!Array.isArray(results) || results.length === 0) {
+          if (loadingButton) {
+            updateLoadingButton(loadingButton, 0, "Low");
+            loadingButton.addEventListener("click", () => {
+              addOverlay("Low", "문제 없음", "", x, y);
+            });
+          }
+          console.log("%c안전", "color: green;");
+        } else {
+          const highRiskCount = results.filter((r) => r.risk === "High").length;
+          const mediumRiskCount = results.filter((r) => r.risk === "Medium").length;
+          const highestRisk = highRiskCount > 0 ? "High" : mediumRiskCount > 0 ? "Medium" : "Low";
+
+          const highestRiskSummary = results.find((r) => r.risk === highestRisk)?.summary || "문제 없음";
+          const highestRiskCustomerAnalysis = results.find((r) => r.risk === highestRisk)?.customer_analysis || "";
+
+          if (loadingButton) {
+            updateLoadingButton(loadingButton, highRiskCount + mediumRiskCount, highestRisk);
+            loadingButton.addEventListener("click", () => {
+              addOverlay(highestRisk, highestRiskSummary, highestRiskCustomerAnalysis, x, y);
+            });
+          }
+
+          if (highestRisk === "High") {
+            console.log("%c위험", "color: red;");
+          } else if (highestRisk === "Medium") {
+            console.log("%c주의", "color: yellow;");
+          } else {
+            console.log("%c안전", "color: green;");
+          }
         }
       })
       .catch((error) => {
