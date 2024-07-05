@@ -1,7 +1,7 @@
 // 웹 페이지에 주입되어 사용자가 드래그한 텍스트를 분석하는 스크립트
 
 function analyzeText(text) {
-  return fetch("https://127.0.0.1:5000/analyze", {
+  return fetch("https://127.0.0.1:5000/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
