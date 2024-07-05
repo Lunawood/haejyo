@@ -38,6 +38,26 @@ MAX_INPUT_LENGTH = 512  # 모델이 지원하는 최대 길이로 설정
 def home():
     return "AgreeSum Server"
 
+# 요약을 처리하는 엔드포인트 추가
+@app.route("/summarize", methods=["POST"])
+def summarize():
+    try:
+        data = request.json
+        text = data.get("text")
+        logger.info(f"Received text for summarization: {text}")
+
+        # 요약과 위험도 평가 수행
+        summary = summarize_text(text)
+        risk = assess_risk(summary)
+        summaries = [{"summary": summary, "risk": risk}]
+        response_data = {"summaries": summaries}
+        return jsonify(response_data)
+
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": "An unexpected error occurred"}), 500
+    
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
@@ -64,8 +84,19 @@ def analyze():
                 )
 
         logger.info(f"Generated summaries and risks: {relevant_summaries}")
-
-        return jsonify(relevant_summaries)
+        
+        # 관련 텍스트 검색 및 요약
+        relevant_text = " ".join([chunk["text"] for chunk in relevant_chunks])
+        summary = summarize_text(relevant_text)
+        details = "Detailed analysis of the text..."  # 임의의 분석 내용
+        logger.info(f"Generated summary: {summary}")
+        
+        # 위험도 평가
+        risk = assess_risk(summary)
+        logger.info(f"Risk assessment: {risk}")
+        
+        response_data = {"text": query, "summary": summary, "risk": risk, "details": details}
+        return jsonify(response_data)
 
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
@@ -89,7 +120,7 @@ if __name__ == "__main__":
             rag_model.create_index(initial_texts, initial_risks)
             update_database([], [])  # 초기 저장
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ssl_context.load_cert_chain(certfile=SSL_CERT_FILE, keyfile=SSL_KEY_FILE)
+        ssl_context.load_cert_chain(certfile="server_secret.crt", keyfile="server_secret.key")
 
         app.run(debug=DEBUG, ssl_context=ssl_context)
     except Exception as e:
