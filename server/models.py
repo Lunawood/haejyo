@@ -22,9 +22,10 @@ class RAGModel:
         self.index = None
         self.text_chunks = []
 
-    def create_index(self, texts, risks):
+    def create_index(self, texts, risks, summaries):
         self.text_chunks = [
-            {"text": text, "risk": risk} for text, risk in zip(texts, risks)
+            {"text": text, "risk": risk, "summary": summary}
+            for text, risk, summary in zip(texts, risks, summaries)
         ]
         embeddings = self._get_embeddings(texts)
         dimension = len(embeddings[0])  # 첫 번째 임베딩의 길이를 사용
@@ -41,7 +42,7 @@ class RAGModel:
         return embeddings
 
     def search(
-        self, query, top_k=3, distance_threshold=0.3, relative_distance_threshold=1.2
+        self, query, top_k=3, distance_threshold=0.5, relative_distance_threshold=1.2
     ):
         if not self.index or not self.text_chunks:
             raise ValueError("Index or text chunks not initialized")
@@ -75,11 +76,14 @@ class RAGModel:
 
         return sorted_chunks[:top_k]
 
-    def add_texts(self, new_texts, new_risks="Low"):
+    def add_texts(self, new_texts, new_risks, new_summaries):
         new_embeddings = self._get_embeddings(new_texts)
         self.index.add(np.array(new_embeddings).astype("float32"))
         self.text_chunks.extend(
-            [{"text": text, "risk": risk} for text, risk in zip(new_texts, new_risks)]
+            [
+                {"text": text, "risk": risk, "summary": summary}
+                for text, risk, summary in zip(new_texts, new_risks, new_summaries)
+            ]
         )
 
 

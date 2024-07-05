@@ -2,31 +2,31 @@
 
 function analyzeText(text) {
   // 위험 옵션 분석 로직 (모델 API 호출)
-  return fetch('https://127.0.0.1:5000/analyze', {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text }),
+  return fetch("https://127.0.0.1:5000/search", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text }),
   })
-  .then(response => response.json())
-  .then(result => {
-      if (result.risk === 'High') {
-          console.log('위험');
+    .then((response) => response.json())
+    .then((result) => {
+      if (result.risk === "High") {
+        console.log("위험");
       } else {
-          console.log('안전');
+        console.log("안전");
       }
       return result; // 여기서 result 반환
-  })
-  .catch(error => {
-      console.error('Error analyzing text:', error);
-  });
+    })
+    .catch((error) => {
+      console.error("Error analyzing text:", error);
+    });
 }
 
 function addOverlay(risk, summary, x, y) {
-  const existingOverlay = document.querySelector('.overlay');
+  const existingOverlay = document.querySelector(".overlay");
   if (existingOverlay) {
-      existingOverlay.remove();
+    existingOverlay.remove();
   }
 
   const overlay = document.createElement("div");
@@ -47,23 +47,25 @@ function addOverlay(risk, summary, x, y) {
   document.body.appendChild(overlay);
 }
 
-document.addEventListener('mouseup', function(event) {
+document.addEventListener("mouseup", function (event) {
   const selectedText = window.getSelection().toString().trim();
   if (selectedText.length > 0) {
-      analyzeText(selectedText).then(result => {
-          if (result) {
-              const { clientX: x, clientY: y } = event;
-              addOverlay(result.risk, result.summary, x, y);
-          }
-      }).catch(error => {
-          console.error('Error analyzing text:', error);
+    analyzeText(selectedText)
+      .then((result) => {
+        if (result) {
+          const { clientX: x, clientY: y } = event;
+          addOverlay(result.risk, result.summary, x, y);
+        }
+      })
+      .catch((error) => {
+        console.error("Error analyzing text:", error);
       });
   }
 });
 
-document.addEventListener('mouseup', function(event) {
-  const existingOverlay = document.querySelector('.overlay');
+document.addEventListener("mouseup", function (event) {
+  const existingOverlay = document.querySelector(".overlay");
   if (existingOverlay) {
-      existingOverlay.remove();
+    existingOverlay.remove();
   }
 });

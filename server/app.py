@@ -16,11 +16,18 @@ CORS(app)
 logging.basicConfig(level=getattr(logging, LOG_LEVEL))
 logger = logging.getLogger(__name__)
 
+# 애플리케이션 로거 설정
 
-def update_database(new_texts, new_risks):
+# logger.setLevel(logging.WARNING)  # DEBUG와 INFO 로그는 표시되지 않음
+
+# 또는 완전히 비활성화
+# logger.disabled = True
+
+
+def update_database(new_texts, new_risks, new_summaries):
     # 새 텍스트 추가
     if len(new_risks) != 0:
-        rag_model.add_texts(new_texts, new_risks)
+        rag_model.add_texts(new_texts, new_risks, new_summaries)
 
     # 업데이트된 인덱스 저장
     faiss.write_index(rag_model.index, VECTOR_DB_PATH)
@@ -46,20 +53,20 @@ def analyze():
             raise ValueError("Vector database not initialized")
 
         relevant_chunks = rag_model.search(query)
-        print("relevant chunks: ", relevant_chunks)
+        # print("relevant chunks: ", relevant_chunks)
         relevant_summaries = []
         for chunk in relevant_chunks:
-            customer_analysis = analyze_for_customer(query, chunk["text"])
+            # customer_analysis = analyze_for_customer(query, chunk["text"])
 
-            if customer_analysis != "UNRELATED":
-                relevant_summaries.append(
-                    {
-                        "query": query,
-                        "summary": summarize_text(chunk["text"]),
-                        "risk": chunk["risk"],
-                        "customer_analysis": customer_analysis,
-                    }
-                )
+            # if customer_analysis != "UNRELATED":
+            relevant_summaries.append(
+                {
+                    "query": query,
+                    "summary": chunk["summary"],
+                    "risk": chunk["risk"],
+                    # "customer_analysis": customer_analysis,
+                }
+            )
 
         logger.info(f"Generated summaries and risks: {relevant_summaries}")
 
@@ -83,9 +90,10 @@ if __name__ == "__main__":
             initial_risks = [
                 assess_risk(text) for text in initial_texts
             ]  # Assess initial risks
+            initial_summaries = [summarize_text(text) for text in initial_texts]
 
-            rag_model.create_index(initial_texts, initial_risks)
-            update_database([], [])  # 초기 저장
+            rag_model.create_index(initial_texts, initial_risks, initial_summaries)
+            update_database([], [], [])  # 초기 저장
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(certfile=SSL_CERT_FILE, keyfile=SSL_KEY_FILE)
 
