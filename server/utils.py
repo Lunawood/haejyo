@@ -55,7 +55,7 @@ def analyze_for_customer(query, chunk):
     """
 
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-2024-05-13",
         messages=[
             {
                 "role": "system",
@@ -83,9 +83,10 @@ def analyze_for_customer(query, chunk):
 
     return "Invalid response"
 
+
 def summarize_text(text):
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-2024-05-13",
         messages=[
             {
                 "role": "system",
@@ -128,7 +129,7 @@ def assess_risk(sentence):
     """
 
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o-2024-05-13",
         messages=[
             {
                 "role": "system",

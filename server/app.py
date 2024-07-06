@@ -134,7 +134,7 @@ if __name__ == "__main__":
             rag_model.create_index(initial_texts, initial_risks, initial_summaries)
             update_database([], [], [])  # 초기 저장
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        ssl_context.load_cert_chain(certfile="server_secret.crt", keyfile="server_secret.key")
+        ssl_context.load_cert_chain(certfile=SSL_CERT_FILE, keyfile=SSL_KEY_FILE)
 
         app.run(debug=DEBUG, ssl_context=ssl_context)
     except Exception as e:
