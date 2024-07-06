@@ -36,7 +36,7 @@ class RAGModel:
         embeddings = []
         for text in texts:
             response = client.embeddings.create(
-                model="text-embedding-ada-002", input=text
+                model="text-embedding-3-small", input=text
             )
             embeddings.append(response.data[0].embedding)
         return embeddings
