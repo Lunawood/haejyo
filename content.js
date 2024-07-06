@@ -1,5 +1,24 @@
 // 웹 페이지에 주입되어 사용자가 드래그한 텍스트를 분석하는 스크립트
 
+function loadWebFonts() {
+  const link = document.createElement('link');
+  link.href = 'https://fonts.googleapis.com/css2?family=Jua&display=swap';
+  link.rel = 'stylesheet';
+  document.head.appendChild(link);
+
+  const style = document.createElement('style');
+  style.textContent = `
+    .overlay, .loading-button, .expand-button {
+      font-family: 'Jua', sans-serif !important;
+      font-weight: 400;
+      font-style: normal;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+loadWebFonts();
+
 function analyzeText(text) {
   return fetch("https://127.0.0.1:5000/search", {
     method: "POST",
@@ -14,6 +33,25 @@ function analyzeText(text) {
       return []; // 에러가 발생하면 빈 리스트 반환
     });
 }
+
+function analyzeRisk(text) {
+  // 위험도 분석을 위해 두 번째 API 요청
+  return fetch('https://127.0.0.1:5000/analyze', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text }),
+  })
+    .then(response => response.json())
+    .then(result => {
+      return result;
+    })
+    .catch(error => {
+      console.error('Error analyzing risk:', error);
+      return { error: "An unexpected error occurred" };
+    }); 
+  }
 
 function createLoadingButton(x, y) {
   const existingButton = document.querySelector(".loading-button");
@@ -32,35 +70,62 @@ function createLoadingButton(x, y) {
 function updateLoadingButton(button, count, highestRisk) {
   if (button) {
     button.textContent = `${count}`;
-    button.style.borderColor = highestRisk === "High" ? "red" : highestRisk === "Medium" ? "yellow" : "green";
-    button.style.color = highestRisk === "High" ? "red" : highestRisk === "Medium" ? "yellow" : "green";
+    button.classList.remove('high-risk', 'medium-risk', 'low-risk');
+    
+    // 새로운 위험도 클래스 추가
+    if (highestRisk === "High") {
+      button.classList.add('high-risk');
+    } else if (highestRisk === "Medium") {
+      button.classList.add('medium-risk');
+    } else {
+      button.classList.add('low-risk');
+    }
+    button.style.borderColor = highestRisk === 'High' ? 'red' : highestRisk === 'Medium' ? '#FFD400' : 'green';
   }
 }
 
-function addOverlay(risk, summary, customerAnalysis, x, y) {
+function addOverlay(risk, summary, x, y) {
   const existingOverlay = document.querySelector(".overlay");
   if (existingOverlay) {
     existingOverlay.remove();
   }
 
+  let riskLabel = '';
+  if (risk === "High") {
+    riskLabel = '위험 🚨';
+  } else if (risk === "Medium") {
+    riskLabel = '주의 ⚠️';
+  }
+
   const overlay = document.createElement("div");
   overlay.className = `overlay ${risk.toLowerCase()}-risk`;
   overlay.innerHTML = `
-      <div>${risk === "Low" ? "문제 없음" : summary}</div>
+      <div>${risk === "Low" ? "문제 없음" : `<strong>${riskLabel}</strong><br>${summary}`}</div>
       ${risk !== "Low" ? '<button class="expand-button">펼치기</button>' : ""}
-      ${risk !== "Low" ? `<div class="customer-analysis">${customerAnalysis}</div>` : ""}
+      ${risk !== "Low" ? `<div class="customer-analysis" style="display:none;"></div>` : ""}
     `;
   overlay.style.left = `${x}px`;
   overlay.style.top = `${y}px`;
+  overlay.style.fontFamily= "Jua";
   document.body.appendChild(overlay);
 
   if (risk !== "Low") {
     const expandButton = overlay.querySelector(".expand-button");
     const analysisDiv = overlay.querySelector(".customer-analysis");
-    expandButton.addEventListener("click", () => {
-      const isVisible = analysisDiv.style.display === "block";
-      analysisDiv.style.display = isVisible ? "none" : "block";
-      expandButton.textContent = isVisible ? "펼치기" : "접기";
+
+    expandButton.style.color = "gray";
+
+    analyzeRisk(summary).then(riskResult => {
+      analysisDiv.innerHTML = riskResult[0]?.customer_analysis || ''; // 받은 결과의 customer_analysis 사용
+      console.log(analysisDiv.innerHTML);
+      expandButton.style.color = "blue"; // 활성화 후 파란색 배경
+
+      expandButton.addEventListener("mouseup", () => {
+        console.log("클릭됨");
+        const isVisible = analysisDiv.style.display === "block";
+        analysisDiv.style.display = isVisible ? "none" : "block";
+        expandButton.textContent = isVisible ? "펼치기" : "접기";
+      });
     });
   }
 }
@@ -81,28 +146,28 @@ document.addEventListener("mouseup", function (event) {
               addOverlay("Low", "문제 없음", "", x, y);
             });
           }
-          console.log("%c안전", "color: green;");
+          console.log("안전");
         } else {
           const highRiskCount = results.filter((r) => r.risk === "High").length;
           const mediumRiskCount = results.filter((r) => r.risk === "Medium").length;
           const highestRisk = highRiskCount > 0 ? "High" : mediumRiskCount > 0 ? "Medium" : "Low";
 
-          const highestRiskSummary = results.find((r) => r.risk === highestRisk)?.summary || "문제 없음";
-          const highestRiskCustomerAnalysis = results.find((r) => r.risk === highestRisk)?.customer_analysis || "";
-
+          const highestRiskResult = results.find((r) => r.risk === highestRisk);
+          const highestRiskSummary = highestRiskResult?.summary || "문제 없음";
+          
           if (loadingButton) {
             updateLoadingButton(loadingButton, highRiskCount + mediumRiskCount, highestRisk);
             loadingButton.addEventListener("click", () => {
-              addOverlay(highestRisk, highestRiskSummary, highestRiskCustomerAnalysis, x, y);
+              addOverlay(highestRisk, highestRiskSummary, x, y);
             });
           }
 
           if (highestRisk === "High") {
-            console.log("%c위험", "color: red;");
+            console.log("위험");
           } else if (highestRisk === "Medium") {
-            console.log("%c주의", "color: yellow;");
+            console.log("주의");
           } else {
-            console.log("%c안전", "color: green;");
+            console.log("안전");
           }
         }
       })
