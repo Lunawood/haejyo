@@ -42,7 +42,7 @@ class RAGModel:
         return embeddings
 
     def search(
-        self, query, top_k=3, distance_threshold=0.5, relative_distance_threshold=1.2
+        self, query, top_k=3, distance_threshold=0.3, relative_distance_threshold=1.2
     ):
         if not self.index or not self.text_chunks:
             raise ValueError("Index or text chunks not initialized")
