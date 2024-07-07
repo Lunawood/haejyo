@@ -36,13 +36,13 @@ class RAGModel:
         embeddings = []
         for text in texts:
             response = client.embeddings.create(
-                model="text-embedding-3-small", input=text
+                model="text-embedding-ada-002", input=text
             )
             embeddings.append(response.data[0].embedding)
         return embeddings
 
     def search(
-        self, query, top_k=3, distance_threshold=0.3, relative_distance_threshold=1.2
+        self, query, top_k=3, distance_threshold=0.3, relative_distance_threshold=1.3
     ):
         if not self.index or not self.text_chunks:
             raise ValueError("Index or text chunks not initialized")
