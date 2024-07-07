@@ -1,15 +1,15 @@
 // 웹 페이지에 주입되어 사용자가 드래그한 텍스트를 분석하는 스크립트
 
 function loadWebFonts() {
-  const link = document.createElement('link');
-  link.href = 'https://fonts.googleapis.com/css2?family=Jua&display=swap';
-  link.rel = 'stylesheet';
-  document.head.appendChild(link);
+  const linkJua = document.createElement('link');
+  linkJua.href = 'https://fonts.googleapis.com/css2?family=Jua&display=swap';
+  linkJua.rel = 'stylesheet';
+  document.head.appendChild(linkJua);
 
   const style = document.createElement('style');
   style.textContent = `
     .overlay, .loading-button, .expand-button {
-      font-family: 'Jua', sans-serif !important;
+      font-family: 'Jua', sans-serif;
       font-weight: 400;
       font-style: normal;
     }
@@ -85,10 +85,6 @@ function updateLoadingButton(button, count, highestRisk) {
 }
 
 function addOverlay(risk, summary, x, y) {
-  const existingOverlay = document.querySelector(".overlay");
-  if (existingOverlay) {
-    existingOverlay.remove();
-  }
 
   let riskLabel = '';
   if (risk === "High") {
@@ -104,9 +100,17 @@ function addOverlay(risk, summary, x, y) {
       ${risk !== "Low" ? '<button class="expand-button">펼치기</button>' : ""}
       ${risk !== "Low" ? `<div class="customer-analysis" style="display:none;"></div>` : ""}
     `;
-  overlay.style.left = `${x}px`;
-  overlay.style.top = `${y}px`;
-  overlay.style.fontFamily= "Jua";
+    if (risk === "Low") {
+      const loadingButton = document.querySelector(".loading-button");
+      if (loadingButton) {
+        const rect = loadingButton.getBoundingClientRect();
+        overlay.style.left = `${rect.left}px`;
+        overlay.style.top = `${rect.top}px`;
+      }
+    } else {
+      overlay.style.left = `${x}px`;
+      overlay.style.top = `${y}px`;
+    }
   document.body.appendChild(overlay);
 
   if (risk !== "Low") {
@@ -114,17 +118,24 @@ function addOverlay(risk, summary, x, y) {
     const analysisDiv = overlay.querySelector(".customer-analysis");
 
     expandButton.style.color = "gray";
-
+    expandButton.textContent = "펼치기";
     analyzeRisk(summary).then(riskResult => {
       analysisDiv.innerHTML = riskResult[0]?.customer_analysis || ''; // 받은 결과의 customer_analysis 사용
       console.log(analysisDiv.innerHTML);
       expandButton.style.color = "blue"; // 활성화 후 파란색 배경
 
       expandButton.addEventListener("mouseup", () => {
-        console.log("클릭됨");
-        const isVisible = analysisDiv.style.display === "block";
-        analysisDiv.style.display = isVisible ? "none" : "block";
-        expandButton.textContent = isVisible ? "펼치기" : "접기";
+        event.stopPropagation();
+        if (expandButton.textContent === "펼치기") {
+          analysisDiv.style.display = "block";
+          console.log(analysisDiv.style.display);
+          expandButton.textContent = "접기";
+          overlay.style.height = "auto";
+        } else {
+          analysisDiv.style.display = "none";
+          expandButton.textContent = "펼치기";
+          overlay.style.height = "";
+        }
       });
     });
   }
@@ -177,9 +188,11 @@ document.addEventListener("mouseup", function (event) {
   }
 });
 
-document.addEventListener("mouseup", function (event) {
-  const existingOverlay = document.querySelector(".overlay");
-  if (existingOverlay) {
+document.addEventListener('mouseup', function (event) {
+  const existingOverlay = document.querySelector('.overlay');
+  const existingButton = document.querySelector('.loading-button');
+  if (existingOverlay && !existingOverlay.contains(event.target)) {
     existingOverlay.remove();
+    existingButton.remove();
   }
 });
